@@ -5,12 +5,23 @@
 
 import { useState, useEffect, FormEvent } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Cpu, Globe, Shield, Zap, Terminal, Activity, Server, Lock, Database, ChevronRight, Search } from "lucide-react";
+import { Cpu, Globe, Shield, Zap, Terminal, Activity, Server, Lock, Database, ChevronRight, Search, Monitor, Info } from "lucide-react";
 
 type Tab = "dashboard" | "network" | "security" | "systems" | "terminal";
 
+interface DeviceInfo {
+  browser: string;
+  os: string;
+  language: string;
+  cores: number;
+  memory: string;
+  resolution: string;
+  connection: string;
+}
+
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>("dashboard");
+  const [deviceInfo, setDeviceInfo] = useState<DeviceInfo | null>(null);
   const [terminalLines, setTerminalLines] = useState<string[]>([
     "INITIALIZING DIGITAL CENTRE CORE...",
     "ESTABLISHING SECURE CONNECTION...",
@@ -19,6 +30,34 @@ export default function App() {
   ]);
   const [inputValue, setInputValue] = useState("");
 
+  useEffect(() => {
+    // Gather device information
+    const ua = navigator.userAgent;
+    let browser = "Unknown";
+    if (ua.includes("Firefox")) browser = "Firefox";
+    else if (ua.includes("Chrome")) browser = "Chrome";
+    else if (ua.includes("Safari")) browser = "Safari";
+    else if (ua.includes("Edge")) browser = "Edge";
+
+    let os = "Unknown";
+    if (ua.includes("Win")) os = "Windows";
+    else if (ua.includes("Mac")) os = "macOS";
+    else if (ua.includes("Linux")) os = "Linux";
+    else if (ua.includes("Android")) os = "Android";
+    else if (ua.includes("iPhone")) os = "iOS";
+
+    const info: DeviceInfo = {
+      browser,
+      os,
+      language: navigator.language,
+      cores: navigator.hardwareConcurrency || 0,
+      memory: (navigator as any).deviceMemory ? `${(navigator as any).deviceMemory} GB` : "Unknown",
+      resolution: `${window.screen.width}x${window.screen.height}`,
+      connection: (navigator as any).connection ? (navigator as any).connection.effectiveType : "Unknown"
+    };
+    setDeviceInfo(info);
+  }, []);
+
   const handleTerminalSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (!inputValue.trim()) return;
@@ -26,11 +65,23 @@ export default function App() {
     const newLines = [...terminalLines, `> ${inputValue}`];
     
     // Simple mock responses
-    if (inputValue.toLowerCase() === "help") {
-      newLines.push("AVAILABLE COMMANDS: HELP, STATUS, CLEAR, SCAN, REBOOT");
-    } else if (inputValue.toLowerCase() === "status") {
+    const cmd = inputValue.toLowerCase();
+    if (cmd === "help") {
+      newLines.push("AVAILABLE COMMANDS: HELP, STATUS, CLEAR, SCAN, REBOOT, PROBE");
+    } else if (cmd === "status") {
       newLines.push("ALL SYSTEMS OPERATIONAL. LATENCY: 0.002ms");
-    } else if (inputValue.toLowerCase() === "clear") {
+    } else if (cmd === "probe") {
+      newLines.push("PROBING LOCAL HARDWARE...");
+      if (deviceInfo) {
+        newLines.push(`OS: ${deviceInfo.os}`);
+        newLines.push(`BROWSER: ${deviceInfo.browser}`);
+        newLines.push(`CORES: ${deviceInfo.cores}`);
+        newLines.push(`MEMORY: ${deviceInfo.memory}`);
+        newLines.push(`RESOLUTION: ${deviceInfo.resolution}`);
+      } else {
+        newLines.push("ERROR: DEVICE DATA NOT ACCESSIBLE.");
+      }
+    } else if (cmd === "clear") {
       setTerminalLines([]);
       setInputValue("");
       return;
@@ -317,9 +368,9 @@ export default function App() {
 
               <div className="grid md:grid-cols-3 gap-8">
                 {[
-                  { label: "CPU LOAD", value: "24%", icon: Cpu, color: "text-[#00ff41]" },
-                  { label: "MEMORY", value: "12.4 GB", icon: Database, color: "text-blue-400" },
-                  { label: "STORAGE", value: "84.2 TB", icon: Server, color: "text-purple-400" }
+                  { label: "CPU CORES", value: deviceInfo?.cores || "N/A", icon: Cpu, color: "text-[#00ff41]" },
+                  { label: "DEVICE RAM", value: deviceInfo?.memory || "Unknown", icon: Database, color: "text-blue-400" },
+                  { label: "RESOLUTION", value: deviceInfo?.resolution || "N/A", icon: Monitor, color: "text-purple-400" }
                 ].map((stat) => (
                   <div key={stat.label} className="border border-[#00ff41]/20 bg-[#00ff41]/5 p-8 rounded-lg group hover:bg-[#00ff41]/10 transition-all">
                     <stat.icon className={`w-10 h-10 ${stat.color} mb-6 digital-glow`} />
@@ -328,7 +379,7 @@ export default function App() {
                     <div className="mt-6 h-1 bg-white/5 rounded-full overflow-hidden">
                       <motion.div 
                         initial={{ width: 0 }}
-                        animate={{ width: "60%" }}
+                        animate={{ width: "100%" }}
                         className={`h-full bg-current ${stat.color}`}
                       />
                     </div>
@@ -336,22 +387,48 @@ export default function App() {
                 ))}
               </div>
 
-              <div className="border border-[#00ff41]/20 bg-[#00ff41]/5 p-8 rounded-lg">
-                <h3 className="text-xl font-bold mb-8">PROCESS MONITOR</h3>
-                <div className="space-y-4">
-                  {[
-                    { name: "Kernel-Core", pid: "0001", cpu: "0.2%", mem: "124MB" },
-                    { name: "Security-Daemon", pid: "1422", cpu: "4.5%", mem: "2.1GB" },
-                    { name: "Network-Stack", pid: "0982", cpu: "12.1%", mem: "4.5GB" },
-                    { name: "UI-Renderer", pid: "2246", cpu: "2.4%", mem: "840MB" }
-                  ].map((proc) => (
-                    <div key={proc.pid} className="grid grid-cols-4 text-[10px] font-mono uppercase p-3 border border-white/5 hover:bg-white/5">
-                      <span className="text-[#00ff41]">{proc.name}</span>
-                      <span className="opacity-50">PID: {proc.pid}</span>
-                      <span className="text-right">CPU: {proc.cpu}</span>
-                      <span className="text-right">MEM: {proc.mem}</span>
+              <div className="grid md:grid-cols-2 gap-8">
+                <div className="border border-[#00ff41]/20 bg-[#00ff41]/5 p-8 rounded-lg">
+                  <h3 className="text-xl font-bold mb-8 flex items-center gap-2">
+                    <Info className="w-5 h-5 text-[#00ff41]" /> DEVICE PROBE
+                  </h3>
+                  <div className="space-y-4 font-mono text-xs">
+                    <div className="flex justify-between border-b border-white/5 pb-2">
+                      <span className="opacity-50 uppercase">Operating System</span>
+                      <span className="text-[#00ff41]">{deviceInfo?.os}</span>
                     </div>
-                  ))}
+                    <div className="flex justify-between border-b border-white/5 pb-2">
+                      <span className="opacity-50 uppercase">Browser Engine</span>
+                      <span className="text-[#00ff41]">{deviceInfo?.browser}</span>
+                    </div>
+                    <div className="flex justify-between border-b border-white/5 pb-2">
+                      <span className="opacity-50 uppercase">System Language</span>
+                      <span className="text-[#00ff41]">{deviceInfo?.language}</span>
+                    </div>
+                    <div className="flex justify-between border-b border-white/5 pb-2">
+                      <span className="opacity-50 uppercase">Network Type</span>
+                      <span className="text-[#00ff41] uppercase">{deviceInfo?.connection}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border border-[#00ff41]/20 bg-[#00ff41]/5 p-8 rounded-lg">
+                  <h3 className="text-xl font-bold mb-8">PROCESS MONITOR</h3>
+                  <div className="space-y-4">
+                    {[
+                      { name: "Kernel-Core", pid: "0001", cpu: "0.2%", mem: "124MB" },
+                      { name: "Security-Daemon", pid: "1422", cpu: "4.5%", mem: "2.1GB" },
+                      { name: "Network-Stack", pid: "0982", cpu: "12.1%", mem: "4.5GB" },
+                      { name: "UI-Renderer", pid: "2246", cpu: "2.4%", mem: "840MB" }
+                    ].map((proc) => (
+                      <div key={proc.pid} className="grid grid-cols-4 text-[10px] font-mono uppercase p-3 border border-white/5 hover:bg-white/5">
+                        <span className="text-[#00ff41]">{proc.name}</span>
+                        <span className="opacity-50">PID: {proc.pid}</span>
+                        <span className="text-right">CPU: {proc.cpu}</span>
+                        <span className="text-right">MEM: {proc.mem}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </motion.div>
